@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research Lab - AI Research Agent</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+
+        :root {
+            --bg-deep: #faf9f7;
+            --bg-card: #ffffff;
+            --accent-cyan: #0891b2;
+            --accent-pink: #db2777;
+            --accent-violet: #7c3aed;
+            --text-primary: #1a1a2e;
+            --text-secondary: #64748b;
+            --border-glow: rgba(8, 145, 178, 0.15);
+            --shadow-soft: rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Syne', sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Subtle dot pattern */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px);
+            background-size: 28px 28px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .logo {
+            font-size: 14px;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            color: var(--accent-cyan);
+            margin-bottom: 20px;
+            font-family: 'Space Mono', monospace;
+        }
+
+        h1 {
+            font-size: clamp(48px, 8vw, 96px);
+            font-weight: 800;
+            line-height: 0.95;
+            letter-spacing: -3px;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+            max-width: 500px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* Agent Status */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 40px;
+            padding: 16px 32px;
+            background: var(--bg-card);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 100px;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 4px 20px var(--shadow-soft);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 245, 212, 0.4); }
+            50% { opacity: 0.8; box-shadow: 0 0 0 8px rgba(0, 245, 212, 0); }
+        }
+
+        .status-text {
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+            color: var(--accent-cyan);
+        }
+
+        /* Tools Grid */
+        .tools-section {
+            margin-bottom: 80px;
+        }
+
+        .section-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            color: var(--accent-pink);
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .tool-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: 20px;
+            padding: 32px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 4px 24px var(--shadow-soft);
+        }
+
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-pink));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+
+        .tool-card:hover {
+            border-color: var(--border-glow);
+            transform: translateY(-4px);
+        }
+
+        .tool-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .tool-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .tool-icon.twitter { background: linear-gradient(135deg, #1DA1F2 0%, #0d8ed9 100%); }
+        .tool-icon.web { background: linear-gradient(135deg, #7209b7 0%, #560bad 100%); }
+        .tool-icon.paper { background: linear-gradient(135deg, #f72585 0%, #b5179e 100%); }
+        .tool-icon.conf { background: linear-gradient(135deg, #00f5d4 0%, #00bbf9 100%); color: #0a0a0f; }
+        .tool-icon.newsletter { background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); }
+        .tool-icon.data { background: linear-gradient(135deg, #6c63ff 0%, #3f36b8 100%); }
+
+        .tool-name {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .tool-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .tool-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tag {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            padding: 6px 12px;
+            background: rgba(0, 0, 0, 0.04);
+            border-radius: 100px;
+            color: var(--text-secondary);
+        }
+
+        /* API Section */
+        .api-section {
+            background: var(--bg-card);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: 24px;
+            padding: 48px;
+            box-shadow: 0 8px 40px var(--shadow-soft);
+        }
+
+        .api-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 32px;
+        }
+
+        .api-title {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .api-badge {
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            padding: 8px 16px;
+            background: var(--accent-cyan);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 100px;
+            color: white;
+        }
+
+        .api-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .api-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.03);
+            border-radius: 12px;
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+        }
+
+        .api-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+        }
+
+        /* Run Demo */
+        .demo-section {
+            margin-top: 60px;
+            text-align: center;
+        }
+
+        .demo-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 20px 48px;
+            background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-pink) 100%);
+            border: none;
+            border-radius: 100px;
+            font-family: 'Syne', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: #0a0a0f;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .demo-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 40px rgba(8, 145, 178, 0.25);
+        }
+
+        /* Output Area */
+        .output-area {
+            margin-top: 40px;
+            background: var(--bg-card);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: 16px;
+            padding: 24px;
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+            color: var(--text-secondary);
+            min-height: 120px;
+            text-align: left;
+            display: none;
+            box-shadow: 0 4px 20px var(--shadow-soft);
+        }
+
+        .output-area.active {
+            display: block;
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 100px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-family: 'Space Mono', monospace;
+        }
+
+        footer a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container { padding: 40px 20px; }
+            h1 { letter-spacing: -1px; }
+            .status-bar { width: calc(100% - 40px); }
+            .api-header { flex-direction: column; gap: 16px; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">Research Lab</div>
+            <h1>AI Research<br>Agent</h1>
+            <p class="subtitle">Twitter 情报 + 网络抓取 + 论文搜索 + 顶会追踪，一站式科研情报工作流</p>
+
+            <div class="status-bar">
+                <div class="status-dot"></div>
+                <span class="status-text">System Online — MiniMax + OpenCLI + crawl4ai</span>
+            </div>
+        </header>
+
+        <section class="tools-section">
+            <div class="section-label">// Capabilities</div>
+            <div class="tools-grid">
+
+                <div class="tool-card">
+                    <div class="tool-icon twitter">𝕏</div>
+                    <div class="tool-name">Twitter 情报</div>
+                    <div class="tool-desc">抓取书签和时间线，追踪 AI 领域技术趋势和热点讨论</div>
+                    <div class="tool-tags">
+                        <span class="tag">opencli</span>
+                        <span class="tag">bookmarks</span>
+                        <span class="tag">timeline</span>
+                    </div>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-icon web">🌐</div>
+                    <div class="tool-name">网页抓取</div>
+                    <div class="tool-desc">任意 URL 转 Markdown，支持 crawl4ai 和 Jina AI fallback</div>
+                    <div class="tool-tags">
+                        <span class="tag">crawl4ai</span>
+                        <span class="tag">markdown</span>
+                        <span class="tag">jina</span>
+                    </div>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-icon paper">📄</div>
+                    <div class="tool-name">arXiv 搜索</div>
+                    <div class="tool-desc">搜索 cs.AI/cs.LG/cs.CL 等分类的最新论文，支持相关性排序</div>
+                    <div class="tool-tags">
+                        <span class="tag">arXiv API</span>
+                        <span class="tag">categories</span>
+                        <span class="tag">relevance</span>
+                    </div>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-icon conf">🏛</div>
+                    <div class="tool-name">顶会论文</div>
+                    <div class="tool-desc">DBLP API 搜索 CVPR/ICLR/NeurIPS 等顶级会议，无需认证</div>
+                    <div class="tool-tags">
+                        <span class="tag">DBLP</span>
+                        <span class="tag">CVPR</span>
+                        <span class="tag">ICLR</span>
+                        <span class="tag">NeurIPS</span>
+                    </div>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-icon newsletter">📧</div>
+                    <div class="tool-name">Newsletter</div>
+                    <div class="tool-desc">抓取 Substack 和 RSS 订阅源的最新文章列表</div>
+                    <div class="tool-tags">
+                        <span class="tag">Substack</span>
+                        <span class="tag">RSS</span>
+                        <span class="tag">fetch</span>
+                    </div>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-icon data">💾</div>
+                    <div class="tool-name">数据存储</div>
+                    <div class="tool-desc">JSON 数据保存到本地 raw 目录，支持结构化和非结构化</div>
+                    <div class="tool-tags">
+                        <span class="tag">save_raw</span>
+                        <span class="tag">json</span>
+                        <span class="tag">local</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <section class="api-section">
+            <div class="api-header">
+                <div class="api-title">API Stack</div>
+                <div class="api-badge">MiniMax-M2.7</div>
+            </div>
+            <div class="api-grid">
+                <div class="api-item">
+                    <div class="api-dot"></div>
+                    <span>OpenAI SDK (Native)</span>
+                </div>
+                <div class="api-item">
+                    <div class="api-dot"></div>
+                    <span>ReAct Loop Agent</span>
+                </div>
+                <div class="api-item">
+                    <div class="api-dot"></div>
+                    <span>OpenCLI (Twitter)</span>
+                </div>
+                <div class="api-item">
+                    <div class="api-dot"></div>
+                    <span>crawl4ai (Web)</span>
+                </div>
+                <div class="api-item">
+                    <div class="api-dot"></div>
+                    <span>arXiv API</span>
+                </div>
+                <div class="api-item">
+                    <div class="api-dot"></div>
+                    <span>DBLP API</span>
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <button class="demo-btn" onclick="runDemo()">
+                    <span>▶</span>
+                    Run Demo Query
+                </button>
+                <div class="output-area" id="output">
+                    Waiting for demo...
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            Built with Claude Code × research-lab<br>
+            <a href="https://github.com">View on GitHub</a>
+        </footer>
+    </div>
+
+    <script>
+        const responses = [
+            '[Step 1/12] Calling twitter_bookmarks(limit=40)...',
+            '[Step 2/12] Found 40 bookmarks, crawling 4 high-value URLs...',
+            '[Step 3/12] Extracting key trends: Loop Transformers, Multi-Agent, AI Coding...',
+            '[Step 4/12] Cross-referencing with arXiv papers...',
+            '[Step 5/12] Saving analysis to data/raw/twitter_ai_trends.json...',
+            '[Done] Final report generated: 3289 characters'
+        ];
+
+        let index = 0;
+        const output = document.getElementById('output');
+
+        function runDemo() {
+            output.classList.add('active');
+            output.textContent = '';
+            index = 0;
+
+            const interval = setInterval(() => {
+                if (index < responses.length) {
+                    output.textContent += responses[index] + '\n';
+                    index++;
+                } else {
+                    clearInterval(interval);
+                }
+            }, 400);
+        }
+    </script>
+</body>
+</html>
