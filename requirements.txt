@@ -1,0 +1,7 @@
+requests
+PyYAML
+aiosqlite
+aiofiles
+playwright
+langchain
+# deepagents  # Note: ensure this package name is correct in your registry

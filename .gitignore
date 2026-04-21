@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Env
+.env
+
+# Data (raw/processing results - keep structure, ignore contents)
+data/
+raw/
+processed/
+# But keep data structure:
+# data/.gitkeep
+# raw/.gitkeep
+# processed/.gitkeep
+
+# Temp
+*.tmp
+*.log
+*.swp
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# OMC (local agent state)
+.omc/
+
+# Users (user-specific content)
+Users/
