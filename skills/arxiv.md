@@ -1,51 +1,40 @@
 # ArXiv 论文抓取
 
-从 arXiv 抓取学术论文元数据和摘要。
+通过 arXiv API 搜索和获取论文元数据。
 
-## API 搜索
+## CLI 调用（Agent 直接用）
 
-```python
-from src import crawl_arxiv_paper
+```bash
+# 搜索论文
+curl -s "https://export.arxiv.org/api/query?search_query=ti:transformer+AND+cat:cs.LG&max_results=5&sortBy=submittedDate"
 
-success, xml_content = crawl_arxiv_paper("1706.03762")
+# 获取已知论文
+curl -s "https://export.arxiv.org/api/query?id_list=1706.03762,1810.04805"
+
+# 带过滤的搜索
+curl -s "https://export.arxiv.org/api/query?search_query=au:vaswani&max_results=10&sortBy=relevance"
 ```
 
-## 保存到 Sources
-
-```python
-from src import crawl_and_save, save_source
-
-# 抓取并保存
-success, content, path = crawl_and_save("https://arxiv.org/abs/1706.03762")
-
-# 手动保存
-from src import save_source
-import xml.etree.ElementTree as ET
-
-url = "https://arxiv.org/abs/1706.03762"
-content = ...  # 抓取的内容
-fm, path = save_source(content, url, format="xml", extra_frontmatter={
-    "title": "Attention Is All You Need",
-    "authors": ["Vaswani et al."],
-})
-```
-
-## API 查询参数
+## API 参数
 
 - `search_query`: `ti:title`, `au:name`, `abs:phrase`, `cat:cs.LG`
 - `id_list`: 逗号分隔的 ID，如 `1706.03762,1810.04805`
 - `max_results`: 最大返回数量（默认 10）
 - `sortBy`: `relevance`, `lastUpdatedDate`, `submittedDate`
 
-## 示例查询
+## 搜索示例
 
-```python
-# 搜索 Transformer 相关论文
-url = "http://export.arxiv.org/api/query?search_query=ti:transformer+AND+cat:cs.LG&max_results=5&sortBy=submittedDate&sortOrder=descending"
+```bash
+# Transformer 相关论文
+curl -s "https://export.arxiv.org/api/query?search_query=ti:transformer&max_results=5&sortBy=submittedDate&sortOrder=descending"
 
-# 批量获取已知论文
-url = "http://export.arxiv.org/api/query?id_list=1706.03762,1810.04805&max_results=2"
+# AI 安全相关
+curl -s "https://export.arxiv.org/api/query?search_query=abs:AI+safety&max_results=10&sortBy=submittedDate&sortOrder=descending"
 ```
+
+## 保存到 Sources
+
+爬取后用 `save_to_sources` 工具保存，format 用 `xml`。
 
 ## 链接
 

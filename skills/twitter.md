@@ -2,41 +2,31 @@
 
 通过 opencli 抓取 Twitter 内容。
 
-## 抓取书签
-
-```python
-from src import crawl_twitter_opencli, crawl_twitter_and_save
-
-# 抓取并返回 JSON
-success, content = crawl_twitter_opencli("bookmarks --limit 10 -f json")
-
-# 抓取并保存到 sources/
-success, content, path = crawl_twitter_and_save("bookmarks --limit 10", tag="bookmarks")
-```
-
-## 抓取用户推文
-
-```python
-success, content = crawl_twitter_opencli("profile username --limit 10 -f json")
-
-# 保存
-success, content, path = crawl_twitter_and_save("profile neelnanda --limit 10", tag="neelnanda-tweets")
-```
-
-## opencli 命令
+## CLI 调用（Agent 直接用）
 
 ```bash
 # 书签
 opencli twitter bookmarks -f json --limit 10
 
 # 用户推文
-opencli twitter profile username -f json --limit 10
+opencli twitter profile @username -f json --limit 10
 
 # 搜索
 opencli twitter search "AI safety" --limit 10
 ```
 
-## 保存到 Sources
+## 抓取后保存
+
+爬取内容后用 `save_to_sources` 工具保存：
+
+```python
+# url: https://twitter.com/bookmarks 或 https://twitter.com/username
+# content: 抓取的 JSON
+# source_type: social
+# extra: {"tag": "bookmarks"}
+```
+
+## 保存到 Sources（手动）
 
 ```python
 from src import save_source

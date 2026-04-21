@@ -26,9 +26,6 @@ from src import (
     save_source,
     load_source,
     list_sources,
-    crawl_url_auto,
-    crawl_arxiv_paper,
-    crawl_twitter_opencli,
     crawl_and_save,
     crawl_twitter_and_save,
     wiki_ingest,
@@ -51,11 +48,13 @@ from src import (
 
 @tool
 def crawl_webpage(url: str) -> str:
-    """抓取任意网页返回 Markdown 内容（自动选择最佳方法）"""
-    success, content = crawl_url_auto(url)
-    if success:
-        return content
-    return f"Crawl failed: {content}"
+    """抓取任意网页 — 实际由 Agent 直接调 CLI（browser-harness / curl jina）
+
+    示例：
+    - browser-harness 渲染 JS: uv run browser-harness ...
+    - Jina 纯文本: curl -s https://r.jina.ai/{url}
+    """
+    return "请直接用 CLI 命令爬取：browser-harness 或 curl https://r.jina.ai/{url}"
 
 
 @tool
@@ -157,16 +156,14 @@ def search_arxiv(query: str, max_results: int = 5, category: str = "") -> str:
 
 @tool
 def twitter_bookmarks(limit: int = 10) -> str:
-    """抓取 Twitter 书签，返回 JSON"""
-    success, content = crawl_twitter_opencli(f"bookmarks --limit {limit} -f json")
-    return content if success else f"Error: {content}"
+    """Twitter 书签 — Agent 直接调 CLI: opencli twitter bookmarks --limit N"""
+    return "请直接调 CLI: opencli twitter bookmarks --limit " + str(limit)
 
 
 @tool
 def twitter_profile(username: str, limit: int = 10) -> str:
-    """抓取 Twitter 用户推文"""
-    success, content = crawl_twitter_opencli(f"profile {username} --limit {limit} -f json")
-    return content if success else f"Error: {content}"
+    """Twitter 用户推文 — Agent 直接调 CLI: opencli twitter profile @username"""
+    return "请直接调 CLI: opencli twitter profile " + username
 
 
 @tool
