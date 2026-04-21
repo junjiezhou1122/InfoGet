@@ -5,14 +5,28 @@
 ## CLI 调用
 
 ```bash
-# 基础用法
-curl -s https://r.jina.ai/{url}
+# 最常用：直接转 Markdown
+curl -s https://r.jina.ai/https://example.com
 
-# 指定输出格式
-curl -s https://r.jina.ai/{url} -H "Accept: text/markdown"
+# 带 Header
+curl -s https://r.jina.ai/https://example.com \
+  -H "Accept: text/markdown" \
+  -H "X-Return-Format: markdown"
 
-# 带标题
-curl -s https://r.jina.ai/{url} -H "X-Return-Format: markdown"
+# 仅获取文本（去除 HTML）
+curl -s https://r.jina.ai/https://example.com \
+  -H "Accept: text/plain"
+```
+
+## Python 调用
+
+```python
+import urllib.request
+
+url = "https://r.jina.ai/" + urllib.request.quote("https://example.com")
+req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+with urllib.request.urlopen(req, timeout=20) as r:
+    print(r.read().decode())
 ```
 
 ## 适合场景
@@ -20,16 +34,6 @@ curl -s https://r.jina.ai/{url} -H "X-Return-Format: markdown"
 - 快速获取网页正文
 - 不需要 JS 渲染的静态页面
 - 轻量级爬取
-
-## 示例
-
-```bash
-# 抓博客文章
-curl -s https://neelnanda.io/blog
-
-# 抓新闻
-curl -s https://news.ycombinator.com/item?id=123
-```
 
 ## 限制
 
