@@ -44,7 +44,6 @@ from .skills_loader import (
 )
 
 __all__ = [
-    # source_manager
     "extract_hostname",
     "get_source_type",
     "get_source_path",
@@ -53,7 +52,6 @@ __all__ = [
     "load_source",
     "list_sources",
     "SOURCE_TYPES",
-    # wiki_bridge
     "wiki_init",
     "wiki_ingest",
     "wiki_query",
@@ -65,13 +63,11 @@ __all__ = [
     "wiki_list",
     "is_wiki_initialized",
     "ensure_wiki_initialized",
-    # crawler
     "crawl_url_auto",
     "crawl_arxiv_paper",
     "crawl_twitter_opencli",
     "crawl_and_save",
     "crawl_twitter_and_save",
-    # skills_loader
     "list_skills",
     "load_skill",
     "get_skill_summary",
