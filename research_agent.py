@@ -1,5 +1,5 @@
 """
-Research Agent - Deep Agents Framework
+Research Agent - InfoGet Knowledge Management
 Skill-driven research agent using LangChain/LangGraph
 """
 import os
@@ -21,101 +21,95 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_openai import ChatOpenAI
 from langchain.tools import tool
 
+# Import InfoGet modules
+from src import (
+    save_source,
+    load_source,
+    list_sources,
+    crawl_url_auto,
+    crawl_arxiv_paper,
+    crawl_twitter_opencli,
+    crawl_and_save,
+    crawl_twitter_and_save,
+    wiki_ingest,
+    wiki_query,
+    wiki_search,
+    wiki_add,
+    wiki_list,
+    wiki_status,
+    wiki_lint,
+    is_wiki_initialized,
+    ensure_wiki_initialized,
+    get_all_skills_summary,
+    load_skill,
+)
+
 
 # =====================
-# 工具定义 (LangChain @tool)
+# InfoGet Tools (LangChain @tool)
 # =====================
-
-@tool
-def twitter_bookmarks(limit: int = 10) -> str:
-    """抓取当前用户的 Twitter 书签，返回 JSON 格式推文列表"""
-    cmd = ["opencli", "twitter", "bookmarks", "-f", "json", "--limit", str(limit)]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        return result.stdout if result.returncode == 0 else f"Error: {result.stderr}"
-    except Exception as e:
-        return f"Exception: {str(e)}"
-
-
-@tool
-def twitter_profile(username: str, limit: int = 10) -> str:
-    """抓取指定 Twitter 用户的最新推文"""
-    cmd = ["opencli", "twitter", "profile", username, "-f", "json", "--limit", str(limit)]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        return result.stdout if result.returncode == 0 else f"Error: {result.stderr}"
-    except Exception as e:
-        return f"Exception: {str(e)}"
-
 
 @tool
 def crawl_webpage(url: str) -> str:
-    """抓取任意网页返回 Markdown 内容"""
-    try:
-        from crawl4ai import AsyncWebCrawler
-        async def _crawl():
-            async with AsyncWebCrawler(verbose=False) as crawler:
-                result = await crawler.arun(url=url)
-                if result.success:
-                    return result.markdown
-                return f"Crawl failed: {result.error_message}"
-        import asyncio
-        return asyncio.run(_crawl())
-    except Exception:
-        try:
-            resp = subprocess.run(["curl", "-s", f"https://r.jina.ai/{url}"],
-                                  capture_output=True, text=True, timeout=30)
-            return resp.stdout if resp.returncode == 0 else "Fallback failed"
-        except Exception:
-            return "Crawl error"
+    """抓取任意网页返回 Markdown 内容（自动选择最佳方法）"""
+    success, content = crawl_url_auto(url)
+    if success:
+        return content
+    return f"Crawl failed: {content}"
 
 
 @tool
-def run_opencli(command: str) -> str:
-    """执行 opencli 命令并返回结果"""
-    try:
-        result = subprocess.run(
-            command.split(),
-            capture_output=True,
-            text=True,
-            timeout=60
-        )
-        if result.returncode == 0:
-            return result.stdout
-        return f"Error: {result.stderr}"
-    except Exception as e:
-        return f"Exception: {str(e)}"
+def save_to_sources(url: str, content: str, source_type: str = "", extra: dict = None) -> str:
+    """
+    保存内容到 sources/ 目录（带 frontmatter）
+
+    Args:
+        url: 源 URL
+        content: 要保存的内容
+        source_type: 类型（paper/blog/social/code，自动检测可省略）
+        extra: 额外的 frontmatter 字段
+    """
+    fm_yaml, path = save_source(
+        content=content,
+        url=url,
+        source_type=source_type or None,
+        extra_frontmatter=extra
+    )
+    return f"Saved to {path}\n\nFrontmatter:\n{fm_yaml}"
 
 
 @tool
-def save_raw(data: str, filename: str) -> str:
-    """保存 JSON 到 data/raw/ 目录"""
-    raw_dir = Path(__file__).parent / "data" / "raw"
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    path = raw_dir / f"{filename}.json"
-    try:
-        parsed = json.loads(data)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(parsed, f, ensure_ascii=False, indent=2)
-        return f"Saved to {path}"
-    except json.JSONDecodeError:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(data)
-        return f"Saved text to {path}"
+def ingest_to_wiki(source_path: str, title: str, tags: List[str] = None,
+                   category: str = "") -> str:
+    """
+    把 source ingest 到 wiki（AI 处理原材料）
+
+    Args:
+        source_path: sources/ 下的文件路径
+        title: wiki 页面标题
+        tags: 标签列表
+        category: 分类
+    """
+    success, msg = wiki_ingest(
+        source_path=source_path,
+        title=title,
+        tags=tags,
+        category=category
+    )
+    return msg if success else f"Failed: {msg}"
 
 
 @tool
-def save_processed(content: str, filename: str) -> str:
-    """保存处理后的报告到 data/processed/ 目录 (Markdown 格式)"""
-    processed_dir = Path(__file__).parent / "data" / "processed"
-    processed_dir.mkdir(parents=True, exist_ok=True)
-    # 确保文件名有 .md 后缀
-    if not filename.endswith(".md"):
-        filename = filename + ".md"
-    path = processed_dir / filename
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
-    return f"Saved to {path}"
+def query_wiki(query: str, category: str = "") -> str:
+    """
+    查询 wiki 知识库
+
+    Args:
+        query: 搜索查询
+        category: 可选的分类过滤
+    """
+    success, result = wiki_query(query, category=category or None)
+    return result if success else f"Query failed: {result}"
 
 
 @tool
@@ -162,239 +156,83 @@ def search_arxiv(query: str, max_results: int = 5, category: str = "") -> str:
 
 
 @tool
-def search_conference_papers(conference: str, year: int = 2025, query: str = "", max_results: int = 10) -> str:
-    """搜索顶级会议论文（CVPR/ICCV/ECCV/ICLR/AAAI/NeurIPS/ICML/ACL/EMNLP/MICCAI），基于 DBLP API 无需认证"""
-    import urllib.parse
-    import urllib.request
-    import xml.etree.ElementTree as ET
-
-    VENUE_MAP = {
-        "CVPR": "cvpr", "ICCV": "iccv", "ECCV": "eccv",
-        "ICLR": "iclr", "AAAI": "aaai", "NeurIPS": "nips",
-        "ICML": "icml", "ACL": "acl", "EMNLP": "emnlp",
-        "MICCAI": "miccai",
-    }
-
-    venue_key = VENUE_MAP.get(conference.upper())
-    if not venue_key:
-        return f"不支持的会议: {conference}，支持的: {', '.join(VENUE_MAP.keys())}"
-
-    q_param = f"toc:db/conf/{venue_key}/{venue_key}{year}.bht"
-    if query:
-        q_param = f"{q_param}+AND+{urllib.parse.quote(query)}"
-
-    url = f"https://dblp.org/search/publ/api?q={q_param}&format=xml&h={max_results}"
-
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            xml_data = resp.read()
-
-        root = ET.fromstring(xml_data)
-        ns = {"dblp": "https://dblp.org/pid/xs/dblp.xsd"}
-        results = []
-
-        for hit in root.findall(".//dblp/hit"):
-            info = hit.find("info", ns)
-            if info is None:
-                continue
-
-            title = info.find("title", ns)
-            title = title.text.strip() if title is not None else "N/A"
-            year_el = info.find("year", ns)
-            year_str = year_el.text if year_el is not None else str(year)
-
-            authors = []
-            for author in info.findall("authors/author", ns):
-                if author.text:
-                    authors.append(author.text)
-            author_str = ", ".join(authors[:3]) + (" et al." if len(authors) > 3 else "")
-
-            url_el = info.find("url", ns)
-            paper_url = url_el.text if url_el is not None else f"https://dblp.org/rec/conf/{venue_key}/{year_str}"
-
-            results.append(f"**{title}**\n  作者: {author_str} | 年份: {year_str} | 会议: {conference}\n  链接: {paper_url}")
-
-        if not results:
-            return f"未找到 {conference} {year} 相关论文"
-        return "\n\n".join(results)
-    except Exception as e:
-        return f"Error: {str(e)}"
+def twitter_bookmarks(limit: int = 10) -> str:
+    """抓取 Twitter 书签，返回 JSON"""
+    success, content = crawl_twitter_opencli(f"bookmarks --limit {limit} -f json")
+    return content if success else f"Error: {content}"
 
 
 @tool
-def fetch_newsletter(url: str) -> str:
-    """抓取 Newsletter 最新文章列表（支持 Substack RSS），返回标题、摘要和链接"""
-    import xml.etree.ElementTree as ET
-    import html
-    import re
-
-    rss_urls = [
-        url if url.endswith(".xml") else url.rstrip("/") + "/feed",
-        url.rstrip("/") + "/feed.xml",
-    ]
-
-    for rss_url in rss_urls:
-        try:
-            resp = subprocess.run(
-                ["curl", "-s", "--max-time", "15", rss_url],
-                capture_output=True, text=True
-            )
-            if resp.returncode == 0 and resp.stdout.strip():
-                root = ET.fromstring(resp.stdout)
-                ns = {"atom": "http://www.w3.org/2005/Atom"}
-                articles = []
-                for entry in root.iter("entry")[:10]:
-                    title = "".join(entry.itertext("title")) or ""
-                    link = (entry.find("link", ns) or entry.find("link")) or ""
-                    link = link.get("href", link.text) if hasattr(link, "get") else str(link)
-                    summary = "".join(entry.itertext("summary")) or "".join(entry.itertext("content")) or ""
-                    published = "".join(entry.itertext("published")) or ""
-                    title = html.unescape(title)
-                    summary = re.sub(r"<[^>]+>", "", html.unescape(summary))[:300]
-                    articles.append(f"- **{title}** ({published})\n  {summary}\n  链接: {link}")
-                if articles:
-                    return "\n\n".join(articles)
-        except Exception:
-            pass
-
-    return crawl_webpage_with_curl(url)
-
-
-def crawl_webpage_with_curl(url: str) -> str:
-    """Fallback crawl using jina.ai proxy"""
-    try:
-        resp = subprocess.run(["curl", "-s", f"https://r.jina.ai/{url}"],
-                              capture_output=True, text=True, timeout=30)
-        return resp.stdout if resp.returncode == 0 else "Curl fallback failed"
-    except Exception:
-        return "Crawl error"
+def twitter_profile(username: str, limit: int = 10) -> str:
+    """抓取 Twitter 用户推文"""
+    success, content = crawl_twitter_opencli(f"profile {username} --limit {limit} -f json")
+    return content if success else f"Error: {content}"
 
 
 @tool
-def fetch_rss(url: str, max_items: int = 10) -> str:
-    """解析任意 RSS/Atom 订阅源，返回标题、链接、描述和发布时间。支持 Blog、YouTube、Podcast、Twitter/X 等各类 RSS。
+def save_processed(content: str, filename: str) -> str:
+    """保存处理后的报告到 processed/ 目录"""
+    processed_dir = Path(__file__).parent / "processed"
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    if not filename.endswith(".md"):
+        filename = filename + ".md"
+    path = processed_dir / filename
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+    return f"Saved to {path}"
 
-    适用场景：
-    - Blog/Newsletter RSS (如 https://blog.langchain.dev/feed)
-    - YouTube 频道 RSS (如 https://youtube.com/feeds/videos.xml?channel_id=xxx)
-    - Podcast RSS (如 https://rsshub.example.com/podcast/xxx)
-    - Twitter/X RSS (如 https://api.xgo.ing/rss/user/xxx)
 
-    注意：部分 Blog 的 RSS URL 可能需要加 /feed 后缀，或使用 RSSHub 代理
+@tool
+def wiki_status() -> str:
+    """查看 wiki 状态"""
+    success, status = wiki_status()
+    return status
+
+
+@tool
+def wiki_health_check() -> str:
+    """Wiki 健康检查"""
+    success, report = wiki_lint()
+    return report
+
+
+@tool
+def list_all_sources(source_type: str = "") -> str:
     """
-    import xml.etree.ElementTree as ET
-    import html
-    import re
+    列出所有 sources
 
-    try:
-        resp = subprocess.run(
-            ["curl", "-s", "-L", "--max-time", "20",
-             "-A", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-             url],
-            capture_output=True,
-            text=True
-        )
-        if resp.returncode != 0:
-            return f"Error fetching RSS: {resp.stderr}"
-
-        xml_content = resp.stdout
-        if not xml_content.strip():
-            return "Empty response from RSS feed"
-
-        # 尝试解析 XML
-        try:
-            root = ET.fromstring(xml_content)
-        except ET.ParseError as e:
-            return f"XML parse error: {str(e)}\n\nRaw content (first 500 chars):\n{xml_content[:500]}"
-
-        ns = {
-            "atom": "http://www.w3.org/2005/Atom",
-            "media": "http://search.yahoo.com/mrss/",
-            "itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd",
-        }
-
-        channel = root.find("channel")
-        if channel is None:
-            # 可能是 Atom feed
-            feed_title = root.find("title")
-            feed_title = feed_title.text if feed_title is not None else "Unknown Feed"
-            entries = root.findall(".//atom:entry", ns) or root.findall("entry")
-        else:
-            feed_title = channel.find("title")
-            feed_title = feed_title.text if feed_title is not None else "Unknown Feed"
-            entries = channel.findall("item") or channel.findall("entry")
-
-        results = [f"# {html.unescape(feed_title)}\n"]
-
-        for i, entry in enumerate(entries[:max_items]):
-            if i >= max_items:
-                break
-
-            # 获取标题
-            title = entry.find("title")
-            title = html.unescape(title.text.strip()) if title is not None and title.text else "No Title"
-
-            # 获取链接
-            link = entry.find("link")
-            if link is not None:
-                if link.get("href"):
-                    link_text = link.get("href")
-                elif link.text:
-                    link_text = link.text.strip()
-                else:
-                    link_text = ""
-            else:
-                link_text = ""
-
-            # 获取描述/摘要
-            desc = entry.find("description") or entry.find("summary") or entry.find("content:encoded")
-            if desc is None:
-                # 尝试 itunes 摘要
-                desc = entry.find("{http://www.itunes.com/dtds/podcast-1.0.dtd}summary")
-            desc_text = ""
-            if desc is not None and desc.text:
-                desc_text = re.sub(r"<[^>]+>", "", html.unescape(desc.text))
-                desc_text = desc_text[:300] + "..." if len(desc_text) > 300 else desc_text
-
-            # 获取发布时间
-            pub_date = entry.find("pubDate") or entry.find("published") or entry.find("updated")
-            pub_text = ""
-            if pub_date is not None and pub_date.text:
-                pub_text = pub_date.text.strip()[:16]  # 简化日期
-
-            # YouTube 特殊处理
-            yt_video_id = entry.find("{http://www.youtube.com/xml/schemas/2015}videoId")
-            if yt_video_id is not None:
-                video_id = yt_video_id.text
-                link_text = f"https://www.youtube.com/watch?v={video_id}"
-                # YouTube 标题可能在 media:group/media:title
-                yt_title = entry.find("{http://search.yahoo.com/mrss/}group/{http://search.yahoo.com/mrss/}title")
-                if yt_title is not None and yt_title.text:
-                    title = html.unescape(yt_title.text.strip())
-                thumb = entry.find("{http://search.yahoo.com/mrss/}thumbnail")
-                thumb_url = thumb.get("url") if thumb is not None else f"https://i1.ytimg.com/vi/{video_id}/hqdefault.jpg"
-                results.append(f"## [{title}]({link_text})\n📅 {pub_text} | 🎥 YouTube\n![Thumbnail]({thumb_url})\n")
-            elif link_text:
-                results.append(f"## [{title}]({link_text})\n📅 {pub_text}\n{desc_text}\n")
-            else:
-                results.append(f"## {title}\n📅 {pub_text}\n{desc_text}\n")
-
-        if len(results) == 1:
-            return "No items found in RSS feed"
-
-        return "\n\n".join(results)
-
-    except Exception as e:
-        return f"RSS fetch error: {str(e)}"
+    Args:
+        source_type: 可选的类型过滤（paper/blog/social/code）
+    """
+    sources = list_sources(source_type=source_type or None)
+    if not sources:
+        return "No sources found"
+    lines = [f"- {s['type']}: {s['source']} (crawled: {s['crawled']})" for s in sources]
+    return "\n".join(lines)
 
 
-# =====================
-# Skill 目录
-# =====================
+@tool
+def list_skills() -> str:
+    """列出所有可用的 skills"""
+    summaries = get_all_skills_summary()
+    if not summaries:
+        return "No skills found"
+    lines = [f"- **{s['title']}**: {s['description'][:100]}..." for s in summaries]
+    return "\n".join(lines)
 
-SKILLS_DIR = Path(__file__).parent / "skills"
-SKILLS_DIR.mkdir(exist_ok=True)
+
+@tool
+def get_skill_content(skill_name: str) -> str:
+    """
+    获取 skill 详细内容
+
+    Args:
+        skill_name: skill 名称（如 browser-harness, arxiv, twitter）
+    """
+    content = load_skill(skill_name)
+    if content:
+        return content
+    return f"Skill '{skill_name}' not found"
 
 
 # =====================
@@ -405,16 +243,23 @@ def create_research_agent():
     """创建科研情报 Agent"""
 
     tools = [
-        run_opencli,
-        save_raw,
-        save_processed,
+        # Crawling
+        crawl_webpage,
+        save_to_sources,
+        # Wiki
+        ingest_to_wiki,
+        query_wiki,
+        wiki_status,
+        wiki_health_check,
+        # Search
+        search_arxiv,
         twitter_bookmarks,
         twitter_profile,
-        crawl_webpage,
-        search_arxiv,
-        search_conference_papers,
-        fetch_newsletter,
-        fetch_rss,
+        # Utils
+        save_processed,
+        list_all_sources,
+        list_skills,
+        get_skill_content,
     ]
 
     backend = FilesystemBackend(
@@ -433,40 +278,46 @@ def create_research_agent():
         name="research-agent",
         model=llm,
         tools=tools,
-        skills=[str(SKILLS_DIR)],
-        system_prompt="""你是一个顶级 AI 科研情报助手，代号 Deep Research Agent。
+        skills=[str(Path(__file__).parent / "skills")],
+        system_prompt="""你是一个顶级 AI 科研情报助手，代号 InfoGet Research Agent。
 
-你的职责是从 Twitter、网络、arXiv 和会议论文中收集科研情报，并进行结构化分析。
+你的职责是从网络、论文、社交媒体收集科研情报，并进行结构化分析存入知识库。
 
-核心能力：
-- run_opencli: 执行 opencli 命令（如 opencli twitter bookmarks -f json）
-- save_raw: 保存 JSON 原始数据到 data/raw/
-- save_processed: 保存 Markdown 报告到 data/processed/
+核心数据流水线：
+1. 爬取内容 → save_to_sources → sources/
+2. AI 处理后 → ingest_to_wiki → wiki/
+3. 查询知识 → query_wiki
+
+InfoGet 工具：
+- crawl_webpage: 抓取任意网页
+- save_to_sources: 保存到 sources/（带 frontmatter）
+- ingest_to_wiki: 把 source 消化成 wiki 知识页面
+- query_wiki: 查询 wiki 知识
+- search_arxiv: 搜索 arXiv 论文
 - twitter_bookmarks: 抓取 Twitter 书签
-- twitter_profile: 追踪特定用户的最新动态
-- crawl_webpage: 深入抓取高价值网页内容
-- search_arxiv: 搜索最新学术论文
-- search_conference_papers: 搜索顶级会议论文 (CVPR/ICLR/NeurIPS等)
-- fetch_newsletter: 抓取 Newsletter 最新内容
+- twitter_profile: 抓取用户推文
+- save_processed: 保存分析报告
+- list_all_sources: 列出 sources
+- list_skills: 列出 skills
+- get_skill_content: 查看 skill 详情
 
-数据保存规范：
-- 原始数据 → save_raw → data/raw/*.json
-- 分析报告 → save_processed → data/processed/*.md
+Sources 结构：
+- sources/paper/hostname/date/
+- sources/blog/hostname/date/
+- sources/social/hostname/date/
+- sources/code/hostname/date/
 
-Skill 知识：
-- skills/opencli/SKILL.md: opencli 通用技能
-- skills/opencli-twitter/SKILL.md: Twitter 专用技能
+Wiki Frontmatter:
+- title, source, tags, related_*, created, updated
 
 工作流程：
-1. 分析用户需求，确定需要哪些数据源
-2. 按优先级调用工具获取信息
-3. 综合所有信息生成结构化报告
+1. 分析用户需求，确定数据源
+2. 爬取内容并保存到 sources/
+3. ingest 到 wiki（AI 消化）
+4. 如有关联，更新 frontmatter 的 related_*
+5. 生成结构化报告
 
-输出格式：最终报告使用中文，包含：
-- 核心发现
-- 详细分析
-- 关键链接
-- 技术趋势判断""",
+输出格式：中文报告，包含核心发现和知识关联""",
         backend=backend,
         checkpointer=MemorySaver(),
     )
@@ -480,8 +331,10 @@ Skill 知识：
 
 def run_research(query: str, thread_id: str = "default"):
     """运行科研任务"""
-    agent = create_research_agent()
+    # 确保 wiki 已初始化
+    ensure_wiki_initialized()
 
+    agent = create_research_agent()
     config = {"configurable": {"thread_id": thread_id}}
 
     result = agent.invoke(
@@ -494,12 +347,12 @@ def run_research(query: str, thread_id: str = "default"):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Deep Research Agent")
-    parser.add_argument("--query", "-q", default="分析我的 Twitter 书签，找出 AI 领域的技术趋势")
+    parser = argparse.ArgumentParser(description="InfoGet Research Agent")
+    parser.add_argument("--query", "-q", default="列出我所有的 skills")
     parser.add_argument("--thread", "-t", default="default", help="会话线程 ID")
     args = parser.parse_args()
 
-    print(f"[*] Deep Research Agent")
+    print(f"[*] InfoGet Research Agent")
     print(f"[*] Query: {args.query}")
     print(f"[*] Thread: {args.thread}")
     print("=" * 60)
